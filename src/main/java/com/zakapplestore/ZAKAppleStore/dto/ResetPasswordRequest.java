@@ -9,26 +9,21 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class RegisterRequest {
-
-    @NotBlank(message = "Username is required")
-    @Size(min = 3, max = 100, message = "Username must be between 3 and 100 characters")
-    private String username;
+public class ResetPasswordRequest {
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
-    @Size(max = 150, message = "Email is too long")
     private String email;
 
-    @Pattern(regexp = "^[0-9]{10,15}$", message = "Mobile must contain 10 to 15 digits")
-    private String mobile;
+    @NotBlank(message = "OTP is required")
+    @Pattern(regexp = "^[0-9]{6}$", message = "OTP must be 6 digits")
+    private String otp;
 
-    @NotBlank(message = "Password is required")
+    @NotBlank(message = "New password is required")
     @Size(min = 8, max = 64, message = "Password must be between 8 and 64 characters")
     @Pattern(
             regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&^#()_+\\-={}\\[\\]:;\"'<>,./\\\\|]).{8,64}$",
             message = "Password must include upper, lower, number, and special character"
     )
-    private String password;
-
+    private String newPassword;
 }

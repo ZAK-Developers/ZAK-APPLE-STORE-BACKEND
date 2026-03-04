@@ -1,68 +1,86 @@
 package com.zakapplestore.ZAKAppleStore.security;
 
+import com.zakapplestore.ZAKAppleStore.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
+import java.util.function.Function;
 
 @Component
 public class JwtUtil {
 
-    @Value("${jwt.secret:ZakAppleStoreSecretKeyForJWTTokenGenerationMustBeAtLeast256BitsLong}")
+    @Value("${app.jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration:86400000}") // 24 hours
-    private long expiration;
+    @Value("${app.jwt.expiration-ms:86400000}")
+    private long expirationInMs;
 
-    private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    private SecretKey signingKey;
+
+    @PostConstruct
+    public void init() {
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("app.jwt.secret must be at least 32 characters long");
+        }
+        signingKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(String email, String role) {
+    public String generateToken(User user) {
+        Date issuedAt = new Date();
+        Date expiresAt = new Date(issuedAt.getTime() + expirationInMs);
+
         return Jwts.builder()
-                .subject(email)
-                .claim("role", role)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSigningKey())
+                .subject(user.getEmail())
+                .claim("role", user.getRole().name())
+                .claim("userId", user.getId().toString())
+                .issuedAt(issuedAt)
+                .expiration(expiresAt)
+                .signWith(signingKey)
                 .compact();
     }
 
     public String extractEmail(String token) {
-        return extractClaims(token).getSubject();
+        return extractClaim(token, Claims::getSubject);
     }
 
-    public String extractRole(String token) {
-        return extractClaims(token).get("role", String.class);
+    public UUID extractUserId(String token) {
+        String userId = extractAllClaims(token).get("userId", String.class);
+        return userId == null ? null : UUID.fromString(userId);
     }
 
     public Date extractExpiration(String token) {
-        return extractClaims(token).getExpiration();
+        return extractClaim(token, Claims::getExpiration);
     }
 
-    public boolean validateToken(String token, String email) {
-        try {
-            String tokenEmail = extractEmail(token);
-            return tokenEmail.equals(email) && !isTokenExpired(token);
-        } catch (Exception e) {
-            return false;
-        }
+    public boolean validateToken(String token, UserDetails userDetails) {
+        String email = extractEmail(token);
+        return email.equalsIgnoreCase(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
-    private Claims extractClaims(String token) {
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .verifyWith(getSigningKey())
+                .verifyWith(signingKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
     private boolean isTokenExpired(String token) {
-        return extractClaims(token).getExpiration().before(new Date());
+        return extractExpiration(token).before(new Date());
     }
 }

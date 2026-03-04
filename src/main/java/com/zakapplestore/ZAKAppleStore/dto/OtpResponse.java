@@ -11,9 +11,8 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
+public class OtpResponse {
 
-    private boolean success;
-    private String token;
-    private UserSummaryResponse user;
+    private String message;
+    private String otp;
 }
