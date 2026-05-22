@@ -120,8 +120,87 @@ CREATE TABLE IF NOT EXISTS login_history (
     status VARCHAR(50)
 )@@
 
+CREATE TABLE IF NOT EXISTS categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(40) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)@@
+
+CREATE SEQUENCE IF NOT EXISTS products_code_seq START WITH 1 INCREMENT BY 1@@
+
+CREATE TABLE IF NOT EXISTS products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_code VARCHAR(20) UNIQUE NOT NULL,
+    category_id UUID NOT NULL REFERENCES categories(id),
+    product_name VARCHAR(80) NOT NULL,
+    product_description VARCHAR(500) NOT NULL,
+    mrp NUMERIC(12, 2) NOT NULL,
+    price NUMERIC(12, 2) NOT NULL,
+    main_photo TEXT NOT NULL,
+    photo_gallery_json TEXT NOT NULL DEFAULT '[]',
+    stock_quantity INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)@@
+
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)@@
 CREATE INDEX IF NOT EXISTS idx_user_addresses_user_id ON user_addresses(user_id)@@
 CREATE INDEX IF NOT EXISTS idx_otp_email_type ON otp_verifications(email, type)@@
 CREATE INDEX IF NOT EXISTS idx_otp_mobile_type ON otp_verifications(mobile, type)@@
 CREATE INDEX IF NOT EXISTS idx_login_history_user_id ON login_history(user_id)@@
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_lower ON categories ((LOWER(name)))@@
+CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id)@@
+
+CREATE TABLE IF NOT EXISTS carts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)@@
+
+CREATE TABLE IF NOT EXISTS cart_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cart_id UUID NOT NULL REFERENCES carts(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES products(id),
+    quantity INTEGER NOT NULL,
+    color VARCHAR(50),
+    storage VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)@@
+
+CREATE TABLE IF NOT EXISTS orders (
+    id BIGSERIAL PRIMARY KEY,
+    order_number VARCHAR(100) UNIQUE NOT NULL,
+    request_id VARCHAR(100) UNIQUE,
+    user_id UUID NOT NULL REFERENCES users(id),
+    status VARCHAR(20) NOT NULL,
+    subtotal NUMERIC(12, 2) NOT NULL,
+    tax NUMERIC(12, 2) NOT NULL,
+    shipping_fee NUMERIC(12, 2) NOT NULL,
+    discount NUMERIC(12, 2) NOT NULL,
+    grand_total NUMERIC(12, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)@@
+
+CREATE TABLE IF NOT EXISTS order_items (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL,
+    quantity INTEGER NOT NULL,
+    price NUMERIC(12, 2) NOT NULL
+)@@
+
+CREATE TABLE IF NOT EXISTS payments (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT UNIQUE NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    gateway_order_id VARCHAR(255) NOT NULL,
+    gateway_payment_id VARCHAR(255),
+    signature VARCHAR(255),
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)@@
