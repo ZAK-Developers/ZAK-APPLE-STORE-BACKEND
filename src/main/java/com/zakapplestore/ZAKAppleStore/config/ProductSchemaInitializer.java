@@ -42,11 +42,49 @@ public class ProductSchemaInitializer implements CommandLineRunner {
                     price NUMERIC(12, 2) NOT NULL,
                     main_photo TEXT NOT NULL,
                     photo_gallery_json TEXT NOT NULL DEFAULT '[]',
+                    best_seller BOOLEAN NOT NULL DEFAULT FALSE,
+                    storage VARCHAR(100),
+                    color VARCHAR(100),
                     stock_quantity INTEGER NOT NULL DEFAULT 0,
                     status VARCHAR(20) NOT NULL DEFAULT 'Active',
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
+                """);
+
+        jdbcTemplate.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'products'
+                          AND column_name = 'best_seller'
+                    ) THEN
+                        ALTER TABLE products ADD COLUMN best_seller BOOLEAN NOT NULL DEFAULT FALSE;
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'products'
+                          AND column_name = 'storage'
+                    ) THEN
+                        ALTER TABLE products ADD COLUMN storage VARCHAR(100);
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'products'
+                          AND column_name = 'color'
+                    ) THEN
+                        ALTER TABLE products ADD COLUMN color VARCHAR(100);
+                    END IF;
+                END $$;
                 """);
 
         jdbcTemplate.execute("""
@@ -94,6 +132,9 @@ public class ProductSchemaInitializer implements CommandLineRunner {
                             ('price'),
                             ('main_photo'),
                             ('photo_gallery_json'),
+                            ('best_seller'),
+                            ('storage'),
+                            ('color'),
                             ('stock_quantity'),
                             ('status'),
                             ('created_at'),

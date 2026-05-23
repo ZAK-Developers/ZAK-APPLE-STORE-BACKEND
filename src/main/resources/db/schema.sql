@@ -139,11 +139,47 @@ CREATE TABLE IF NOT EXISTS products (
     price NUMERIC(12, 2) NOT NULL,
     main_photo TEXT NOT NULL,
     photo_gallery_json TEXT NOT NULL DEFAULT '[]',
+    best_seller BOOLEAN NOT NULL DEFAULT FALSE,
+    storage VARCHAR(100),
+    color VARCHAR(100),
     stock_quantity INTEGER NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL DEFAULT 'Active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )@@
+
+DO $$
+BEGIN
+    IF to_regclass('public.products') IS NOT NULL THEN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'products'
+              AND column_name = 'best_seller'
+        ) THEN
+            ALTER TABLE products ADD COLUMN best_seller BOOLEAN NOT NULL DEFAULT FALSE;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'products'
+              AND column_name = 'storage'
+        ) THEN
+            ALTER TABLE products ADD COLUMN storage VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'products'
+              AND column_name = 'color'
+        ) THEN
+            ALTER TABLE products ADD COLUMN color VARCHAR(100);
+        END IF;
+    END IF;
+END $$@@
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)@@
 CREATE INDEX IF NOT EXISTS idx_user_addresses_user_id ON user_addresses(user_id)@@
@@ -177,6 +213,15 @@ CREATE TABLE IF NOT EXISTS orders (
     request_id VARCHAR(100) UNIQUE,
     user_id UUID NOT NULL REFERENCES users(id),
     status VARCHAR(20) NOT NULL,
+    payment_method VARCHAR(50),
+    shipping_full_name VARCHAR(120),
+    shipping_phone VARCHAR(20),
+    shipping_address_line1 TEXT,
+    shipping_address_line2 TEXT,
+    shipping_city VARCHAR(100),
+    shipping_state VARCHAR(100),
+    shipping_pin_code VARCHAR(10),
+    shipping_country VARCHAR(100),
     subtotal NUMERIC(12, 2) NOT NULL,
     tax NUMERIC(12, 2) NOT NULL,
     shipping_fee NUMERIC(12, 2) NOT NULL,
@@ -186,13 +231,125 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )@@
 
+DO $$
+BEGIN
+    IF to_regclass('public.orders') IS NOT NULL THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'request_id'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN request_id VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'payment_method'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN payment_method VARCHAR(50);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_full_name'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_full_name VARCHAR(120);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_phone'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_phone VARCHAR(20);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_address_line1'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_address_line1 TEXT;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_address_line2'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_address_line2 TEXT;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_city'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_city VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_state'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_state VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_pin_code'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_pin_code VARCHAR(10);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_country'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_country VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'subtotal'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'tax'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN tax NUMERIC(12, 2) NOT NULL DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'shipping_fee'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN shipping_fee NUMERIC(12, 2) NOT NULL DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'discount'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN discount NUMERIC(12, 2) NOT NULL DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'grand_total'
+        ) THEN
+            ALTER TABLE orders ADD COLUMN grand_total NUMERIC(12, 2) NOT NULL DEFAULT 0;
+        END IF;
+    END IF;
+END $$@@
+
 CREATE TABLE IF NOT EXISTS order_items (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     product_id UUID NOT NULL,
+    product_name VARCHAR(150),
     quantity INTEGER NOT NULL,
     price NUMERIC(12, 2) NOT NULL
 )@@
+
+DO $$
+BEGIN
+    IF to_regclass('public.order_items') IS NOT NULL THEN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'order_items'
+              AND column_name = 'product_name'
+        ) THEN
+            ALTER TABLE order_items ADD COLUMN product_name VARCHAR(150);
+        END IF;
+    END IF;
+END $$@@
 
 CREATE TABLE IF NOT EXISTS payments (
     id BIGSERIAL PRIMARY KEY,
@@ -204,3 +361,17 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )@@
+
+CREATE TABLE IF NOT EXISTS product_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    review_title VARCHAR(180) NOT NULL,
+    review_comment TEXT NOT NULL,
+    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)@@
+
+CREATE INDEX IF NOT EXISTS idx_product_reviews_product_id ON product_reviews(product_id)@@
+CREATE INDEX IF NOT EXISTS idx_product_reviews_user_id ON product_reviews(user_id)@@

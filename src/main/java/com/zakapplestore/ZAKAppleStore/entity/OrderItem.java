@@ -37,6 +37,9 @@ public class OrderItem {
     @Column(name = "product_id", nullable = false)
     private java.util.UUID productId;
 
+    @Column(name = "product_name", length = 150)
+    private String productName;
+
     @Column(nullable = false)
     private Integer quantity;
 

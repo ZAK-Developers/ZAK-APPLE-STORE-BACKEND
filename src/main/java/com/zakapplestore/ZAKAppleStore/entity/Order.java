@@ -55,6 +55,33 @@ public class Order {
     @Builder.Default
     private OrderStatus status = OrderStatus.PENDING;
 
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
+    @Column(name = "shipping_full_name", length = 120)
+    private String shippingFullName;
+
+    @Column(name = "shipping_phone", length = 20)
+    private String shippingPhone;
+
+    @Column(name = "shipping_address_line1", columnDefinition = "TEXT")
+    private String shippingAddressLine1;
+
+    @Column(name = "shipping_address_line2", columnDefinition = "TEXT")
+    private String shippingAddressLine2;
+
+    @Column(name = "shipping_city", length = 100)
+    private String shippingCity;
+
+    @Column(name = "shipping_state", length = 100)
+    private String shippingState;
+
+    @Column(name = "shipping_pin_code", length = 10)
+    private String shippingPinCode;
+
+    @Column(name = "shipping_country", length = 100)
+    private String shippingCountry;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
 

@@ -16,6 +16,8 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
+    private static final String OAUTH2_PASSWORD_PLACEHOLDER = "{noop}OAUTH2_USER";
+
     private final UserRepository userRepository;
 
     @Override
@@ -24,7 +26,10 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
         boolean accountEnabled = user.getStatus() == UserStatus.ACTIVE;
-        String password = user.getPassword() == null ? "" : user.getPassword();
+        String password = user.getPassword();
+        if (password == null || password.isBlank()) {
+            password = OAUTH2_PASSWORD_PLACEHOLDER;
+        }
 
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),

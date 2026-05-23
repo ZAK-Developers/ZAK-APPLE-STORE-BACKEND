@@ -54,4 +54,8 @@ public class PaymentService {
             return false;
         }
     }
+
+    public String getKeyId() {
+        return keyId;
+    }
 }

@@ -159,6 +159,25 @@ public class CartRepository {
         );
     }
 
+    public void clearSelectedItems(UUID userId, List<UUID> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return;
+        }
+
+        jdbcTemplate.update(
+                """
+                        DELETE FROM cart_items ci
+                        USING carts c
+                        WHERE ci.cart_id = c.id
+                          AND c.user_id = :userId
+                          AND ci.product_id IN (:productIds)
+                        """,
+                new MapSqlParameterSource()
+                        .addValue("userId", userId)
+                        .addValue("productIds", productIds)
+        );
+    }
+
     public CartResponse mergeItems(UUID userId, List<CartMergeItemRequest> items) {
         if (items == null || items.isEmpty()) {
             return getCart(userId);

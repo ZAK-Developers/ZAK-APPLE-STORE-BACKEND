@@ -1,8 +1,10 @@
 package com.zakapplestore.ZAKAppleStore.service;
 
+import com.zakapplestore.ZAKAppleStore.dto.CartResponse;
+import com.zakapplestore.ZAKAppleStore.dto.CheckoutAddressRequest;
+import com.zakapplestore.ZAKAppleStore.dto.CheckoutCreateOrderRequest;
 import com.razorpay.RazorpayException;
 import com.zakapplestore.ZAKAppleStore.dto.CartItemResponse;
-import com.zakapplestore.ZAKAppleStore.dto.CartResponse;
 import com.zakapplestore.ZAKAppleStore.entity.Order;
 import com.zakapplestore.ZAKAppleStore.entity.OrderItem;
 import com.zakapplestore.ZAKAppleStore.entity.OrderStatus;
@@ -25,7 +27,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -43,7 +45,7 @@ public class CheckoutService {
     private final com.zakapplestore.ZAKAppleStore.messaging.OrderEventPublisher orderEventPublisher;
 
     @Transactional
-    public Map<String, Object> initiateCheckout(String email, String requestId) throws RazorpayException {
+    public Map<String, Object> initiateCheckout(String email, String requestId, CheckoutCreateOrderRequest request) throws RazorpayException {
         // 1. Idempotency Check
         if (orderRepository.existsByRequestId(requestId)) {
             throw new BadRequestException("Order request already processed.");
@@ -54,11 +56,20 @@ public class CheckoutService {
 
         // 2. Strict total calculation and validation
         CartResponse cart = cartService.getCart(email);
-        if (cart.getItems() == null || cart.getItems().isEmpty()) {
+        List<CartItemResponse> checkoutItems = filterCheckoutItems(cart, request);
+        if (checkoutItems.isEmpty()) {
             throw new BadRequestException("Cart is empty");
         }
 
-        BigDecimal grandTotal = cart.getTotal();
+        BigDecimal subtotal = checkoutItems.stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal tax = BigDecimal.ZERO;
+        BigDecimal grandTotal = subtotal.add(tax);
+        CheckoutAddressRequest shippingAddress = request.getShippingAddress();
+        if (shippingAddress == null || isBlank(shippingAddress.getAddressLine1()) || isBlank(shippingAddress.getFullName())) {
+            throw new BadRequestException("Shipping address is required");
+        }
 
         // 3. Create initial order
         Order order = Order.builder()
@@ -66,8 +77,17 @@ public class CheckoutService {
                 .requestId(requestId)
                 .user(user)
                 .status(OrderStatus.PENDING)
-                .subtotal(cart.getSubtotal())
-                .tax(cart.getTax())
+                .paymentMethod(request.getPaymentMethod())
+                .shippingFullName(shippingAddress.getFullName())
+                .shippingPhone(shippingAddress.getPhone())
+                .shippingAddressLine1(shippingAddress.getAddressLine1())
+                .shippingAddressLine2(shippingAddress.getAddressLine2())
+                .shippingCity(shippingAddress.getCity())
+                .shippingState(shippingAddress.getState())
+                .shippingPinCode(shippingAddress.getPinCode())
+                .shippingCountry(shippingAddress.getCountry())
+                .subtotal(subtotal)
+                .tax(tax)
                 .shippingFee(BigDecimal.ZERO)
                 .discount(BigDecimal.ZERO)
                 .grandTotal(grandTotal)
@@ -77,10 +97,11 @@ public class CheckoutService {
 
         // Save snapshot of order items
         List<OrderItem> orderItems = new ArrayList<>();
-        for (CartItemResponse cartItem : cart.getItems()) {
+        for (CartItemResponse cartItem : checkoutItems) {
             OrderItem orderItem = OrderItem.builder()
                     .order(order)
                     .productId(cartItem.getProductId())
+                    .productName(cartItem.getProductName())
                     .quantity(cartItem.getQuantity())
                     .price(cartItem.getPrice())
                     .build();
@@ -105,7 +126,8 @@ public class CheckoutService {
             "orderId", order.getId(),
             "razorpayOrderId", razorpayOrder.get("id"),
             "amount", razorpayOrder.get("amount"),
-            "currency", razorpayOrder.get("currency")
+            "currency", razorpayOrder.get("currency"),
+            "keyId", paymentService.getKeyId()
         );
     }
 
@@ -159,10 +181,56 @@ public class CheckoutService {
         order.setStatus(OrderStatus.PAID);
         orderRepository.save(order);
 
-        // 4. Clear Cart
-        cartRepository.clearCart(order.getUser().getId());
+        // 4. Clear only purchased items from cart
+        cartRepository.clearSelectedItems(
+                order.getUser().getId(),
+                order.getItems().stream().map(OrderItem::getProductId).toList()
+        );
 
         // 5. Publish Event (To be handled by RabbitMQ)
         orderEventPublisher.publishOrderSuccess(order.getId(), order.getUser().getEmail(), order.getOrderNumber());
+    }
+
+    @Transactional
+    public void markOrderFailed(String email, Long orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        if (!order.getUser().getEmail().equalsIgnoreCase(email)) {
+            throw new BadRequestException("Order does not belong to user");
+        }
+
+        if (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.PROCESSING) {
+            throw new BadRequestException("Paid orders cannot be marked as failed");
+        }
+
+        order.setStatus(OrderStatus.FAILED);
+        orderRepository.save(order);
+
+        if (order.getPayment() != null) {
+            Payment payment = order.getPayment();
+            payment.setStatus("FAILED");
+            paymentRepository.save(payment);
+        }
+    }
+
+    private List<CartItemResponse> filterCheckoutItems(CartResponse cart, CheckoutCreateOrderRequest request) {
+        if (cart.getItems() == null) {
+            return List.of();
+        }
+
+        if (request.getProductId() == null) {
+            return cart.getItems();
+        }
+
+        return cart.getItems().stream()
+                .filter(item -> Objects.equals(item.getProductId(), request.getProductId()))
+                .filter(item -> isBlank(request.getColor()) || Objects.equals(item.getColor(), request.getColor()))
+                .filter(item -> isBlank(request.getStorage()) || Objects.equals(item.getStorage(), request.getStorage()))
+                .toList();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

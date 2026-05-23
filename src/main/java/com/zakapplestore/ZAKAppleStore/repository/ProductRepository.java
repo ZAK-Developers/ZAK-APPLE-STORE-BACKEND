@@ -52,6 +52,23 @@ public class ProductRepository {
         );
     }
 
+    public List<ProductResponse> findNewArrivals(int limit) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("limit", Math.max(1, limit));
+
+        String sql = baseSelectWithoutGallery() + """
+                WHERE p.status = 'Active'
+                ORDER BY p.created_at DESC
+                LIMIT :limit
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                params,
+                productRowMapper(false)
+        );
+    }
+
     public Optional<ProductResponse> findById(UUID id) {
         String sql = baseSelectWithGallery() + """
                 WHERE p.id = :id
@@ -62,6 +79,59 @@ public class ProductRepository {
                 productRowMapper(true)
         );
         return rows.stream().findFirst();
+    }
+
+    public List<ProductResponse> findBestSellers(int limit) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("limit", Math.max(1, limit));
+
+        String sql = baseSelectWithoutGallery() + """
+                WHERE p.status = 'Active'
+                  AND p.best_seller = TRUE
+                ORDER BY p.created_at DESC
+                LIMIT :limit
+                """;
+
+        return jdbcTemplate.query(sql, params, productRowMapper(false));
+    }
+
+    public ProductResponse update(UUID id, ProductRequest request) {
+        String sql = """
+                UPDATE products
+                SET category_id = :categoryId,
+                    product_name = :productName,
+                    product_description = :productDescription,
+                    mrp = :mrp,
+                    price = :price,
+                    main_photo = :mainPhoto,
+                    photo_gallery_json = :photoGalleryJson,
+                    best_seller = :bestSeller,
+                    storage = :storage,
+                    color = :color,
+                    stock_quantity = :stockQuantity,
+                    updated_at = :updatedAt
+                WHERE id = :id
+                """;
+
+        jdbcTemplate.update(
+                sql,
+                new MapSqlParameterSource()
+                        .addValue("id", id)
+                        .addValue("categoryId", request.getCategoryId())
+                        .addValue("productName", request.getProductName())
+                        .addValue("productDescription", request.getProductDescription())
+                        .addValue("mrp", safeAmount(request.getMrp()))
+                        .addValue("price", safeAmount(request.getPrice()))
+                        .addValue("mainPhoto", request.getMainPhoto())
+                        .addValue("photoGalleryJson", writePhotoGallery(request.getPhotoGallery()))
+                        .addValue("bestSeller", request.getBestSeller())
+                        .addValue("storage", request.getStorage())
+                        .addValue("color", request.getColor())
+                        .addValue("stockQuantity", request.getStockQuantity())
+                        .addValue("updatedAt", LocalDateTime.now())
+        );
+
+        return findById(id).orElseThrow();
     }
 
     public Optional<ProductResponse> findByIdWithPessimisticLock(UUID id) {
@@ -123,6 +193,9 @@ public class ProductRepository {
                     price,
                     main_photo,
                     photo_gallery_json,
+                    best_seller,
+                    storage,
+                    color,
                     stock_quantity,
                     status,
                     created_at,
@@ -138,6 +211,9 @@ public class ProductRepository {
                     :price,
                     :mainPhoto,
                     :photoGalleryJson,
+                    :bestSeller,
+                    :storage,
+                    :color,
                     :stockQuantity,
                     :status,
                     :createdAt,
@@ -157,6 +233,9 @@ public class ProductRepository {
                         .addValue("price", safeAmount(request.getPrice()))
                         .addValue("mainPhoto", request.getMainPhoto())
                         .addValue("photoGalleryJson", writePhotoGallery(request.getPhotoGallery()))
+                        .addValue("bestSeller", request.getBestSeller())
+                        .addValue("storage", request.getStorage())
+                        .addValue("color", request.getColor())
                         .addValue("stockQuantity", request.getStockQuantity())
                         .addValue("status", "Active")
                         .addValue("createdAt", now)
@@ -376,6 +455,9 @@ public class ProductRepository {
                     p.mrp,
                     p.price,
                     p.main_photo,
+                    p.best_seller,
+                    p.storage,
+                    p.color,
                     '[]' AS photo_gallery_json,
                     p.stock_quantity,
                     p.status,
@@ -433,6 +515,9 @@ public class ProductRepository {
                     p.mrp,
                     p.price,
                     p.main_photo,
+                    p.best_seller,
+                    p.storage,
+                    p.color,
                     p.photo_gallery_json,
                     p.stock_quantity,
                     p.status,
@@ -460,6 +545,9 @@ public class ProductRepository {
                         .mrp(rs.getBigDecimal("mrp"))
                         .price(rs.getBigDecimal("price"))
                         .mainPhoto(rs.getString("main_photo"))
+                        .bestSeller(rs.getBoolean("best_seller"))
+                        .storage(rs.getString("storage"))
+                        .color(rs.getString("color"))
                         .photoGallery(includeGallery ? readPhotoGallery(rs.getString("photo_gallery_json")) : Collections.emptyList())
                         .stockQuantity(rs.getInt("stock_quantity"))
                         .status(rs.getString("status"))

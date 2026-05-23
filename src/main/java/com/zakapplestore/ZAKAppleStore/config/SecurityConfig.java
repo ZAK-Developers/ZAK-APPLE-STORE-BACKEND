@@ -63,8 +63,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/google").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/products/search", "/api/products/search/suggestions").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/products/new-arrivals", "/api/products/search", "/api/products/search/suggestions").permitAll()
                         .requestMatchers(new RegexRequestMatcher("^/api/products/[0-9a-fA-F\\-]+$", "GET")).permitAll()
+                        .requestMatchers(new RegexRequestMatcher("^/api/products/[0-9a-fA-F\\-]+/reviews$", "GET")).permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                         .anyRequest().authenticated()
@@ -99,7 +100,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:4201"));
+        // allow requests from localhost and local network hosts during development
+        config.setAllowedOriginPatterns(List.of("http://*", "https://*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

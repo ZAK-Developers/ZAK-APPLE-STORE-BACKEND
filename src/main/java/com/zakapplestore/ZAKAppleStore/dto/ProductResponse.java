@@ -28,6 +28,9 @@ public class ProductResponse {
     private BigDecimal price;
     private String mainPhoto;
     private List<String> photoGallery;
+    private Boolean bestSeller;
+    private String storage;
+    private String color;
     private Integer stockQuantity;
     private String status;
     private LocalDateTime createdAt;

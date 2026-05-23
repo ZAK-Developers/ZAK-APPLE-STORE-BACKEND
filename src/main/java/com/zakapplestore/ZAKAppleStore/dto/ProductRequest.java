@@ -46,6 +46,13 @@ public class ProductRequest {
 
     private List<String> photoGallery;
 
+    @NotNull(message = "Best Seller selection is required")
+    private Boolean bestSeller;
+
+    private String storage;
+
+    private String color;
+
     @NotNull(message = "Stock quantity is required")
     @Min(value = 0, message = "Stock quantity must be 0 or greater")
     private Integer stockQuantity;

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,6 +37,20 @@ public class ProductController {
             @RequestParam(value = "category", required = false) String category
     ) {
         return ResponseEntity.ok(productService.getPublicProducts(category));
+    }
+
+    @GetMapping("/new-arrivals")
+    public ResponseEntity<List<ProductResponse>> getNewArrivals(
+            @RequestParam(value = "limit", defaultValue = "8") int limit
+    ) {
+        return ResponseEntity.ok(productService.getNewArrivals(limit));
+    }
+
+    @GetMapping("/best-sellers")
+    public ResponseEntity<List<ProductResponse>> getBestSellers(
+            @RequestParam(value = "limit", defaultValue = "4") int limit
+    ) {
+        return ResponseEntity.ok(productService.getBestSellers(limit));
     }
 
     @GetMapping("/search")
@@ -79,5 +94,14 @@ public class ProductController {
             @Valid @RequestBody ProductStatusRequest request
     ) {
         return ResponseEntity.ok(productService.updateProductStatus(id, request.getStatus()));
+    }
+
+    @PutMapping("/admin/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductResponse> updateProduct(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProductRequest request
+    ) {
+        return ResponseEntity.ok(productService.updateProduct(id, request));
     }
 }

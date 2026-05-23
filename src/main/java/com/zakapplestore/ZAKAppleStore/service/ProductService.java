@@ -37,6 +37,18 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    public List<ProductResponse> getBestSellers(int limit) {
+        int safeLimit = Math.min(Math.max(limit, 1), 8);
+        return productRepository.findBestSellers(safeLimit);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductResponse> getNewArrivals(int limit) {
+        int safeLimit = Math.min(Math.max(limit, 1), 8);
+        return productRepository.findNewArrivals(safeLimit);
+    }
+
+    @Transactional(readOnly = true)
     public ProductResponse getProductById(UUID id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
@@ -67,6 +79,19 @@ public class ProductService {
         request.setMainPhoto(normalize(request.getMainPhoto()));
 
         return productRepository.save(request);
+    }
+
+    @Transactional
+    public ProductResponse updateProduct(UUID id, ProductRequest request) {
+        getProductById(id);
+        validateCategoryExists(request.getCategoryId());
+        validatePricing(request.getMrp(), request.getPrice());
+
+        request.setProductName(normalize(request.getProductName()));
+        request.setProductDescription(normalize(request.getProductDescription()));
+        request.setMainPhoto(normalize(request.getMainPhoto()));
+
+        return productRepository.update(id, request);
     }
 
     @Transactional
